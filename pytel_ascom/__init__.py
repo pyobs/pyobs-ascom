@@ -1,0 +1,1 @@
+from .ascomtelescope import AscomTelescope
