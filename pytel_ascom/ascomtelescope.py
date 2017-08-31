@@ -5,17 +5,18 @@ from astropy import units as u
 import pythoncom
 import win32com.client
 
-from pytel.interfaces import IFocuser
+from pytel.interfaces import IFocuser, IFitsHeaderProvider
 from pytel.modules.telescope.basetelescope import BaseTelescope
 from pytel.network import http_async
 
 
-class AscomTelescope(BaseTelescope, IFocuser):
+class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
     def __init__(self, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs)
 
         # variables
         self._telescope = None
+        self._focuser = None
 
     def open(self):
         # init COM
@@ -33,16 +34,33 @@ class AscomTelescope(BaseTelescope, IFocuser):
                 logging.info('Unable to connect to telescope.')
                 raise ValueError('Could not connect to telescope.')
 
+        # do we have a focuser?
+        if self.config['focuser']:
+            self._focuser = win32com.client.Dispatch(self.config['focuser'])
+            if self._focuser.Connected:
+                logging.info('Focuser was already connected.')
+            else:
+                self._focuser.Connected = True
+                if self._focuser.Connected:
+                    logging.info('Connected to focuser.')
+                else:
+                    logging.info('Unable to connect to focuser.')
+                    raise ValueError('Could not connect to focuser.')
+
     def close(self):
         # close connection
         if self._telescope.Connected:
             logging.info('Disconnecting from telescope...')
             self._telescope.Connected = False
+        if self._focuser.Connected:
+            logging.info('Disconnecting from focuser...')
+            self._focuser.Connected = False
 
     @classmethod
     def default_config(cls):
         cfg = super(AscomTelescope, cls).default_config()
         cfg['device'] = None
+        cfg['focuser'] = None
         return cfg
 
     @http_async(60000)
@@ -119,6 +137,27 @@ class AscomTelescope(BaseTelescope, IFocuser):
 
         # finished
         return s
+
+    def get_fits_headers(self, *args, **kwargs) -> dict:
+        """get FITS header for the saved status of the telescope"""
+        # init COM in thread
+        pythoncom.CoInitialize()
+
+        # create sky coordinates
+        c = SkyCoord(ra=self._telescope.RightAscension * u.hour, dec=self._telescope.Declination * u.deg, frame='icrs')
+
+        # return header
+        return {
+            'CRVAL1': (c.ra.deg, 'Right ascension of telescope [degrees]'),
+            'CRVAL2': (c.dec.deg, 'Declination of telescope [degrees]'),
+            'TEL-RA': (c.ra.deg, 'Right ascension of telescope [degrees]'),
+            'TEL-DEC': (c.dec.deg, 'Declination of telescope [degrees]'),
+            'TEL-ZD': (90. - self._telescope.Altitude, 'Telescope zenith distance [degrees]'),
+            'TEL-ALT': (self._telescope.Altitude, 'Telescope altitude [degrees]'),
+            'TEL-AZ': (self._telescope.Azimuth, 'Telescope azimuth [degrees]'),
+            'RA': (c.ra.to_string(sep=':', unit=u.hour, pad=True), 'Right ascension of telescope'),
+            'DEC': (c.dec.to_string(sep=':', unit=u.deg, pad=True), 'Declination of telescope')
+        }
 
     @http_async(60000)
     def set_focus(self, focus: float, *args, **kwargs) -> bool:
