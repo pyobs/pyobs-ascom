@@ -1,11 +1,10 @@
 import logging
-import queue
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import pythoncom
 import win32com.client
 
-from pytel.interfaces import IFocuser, IFitsHeaderProvider
+from pytel.interfaces import IFitsHeaderProvider
 from pytel.modules.telescope.basetelescope import BaseTelescope
 from pytel.network import http_async
 
@@ -16,7 +15,6 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
 
         # variables
         self._telescope = None
-        self._focuser = None
 
     def open(self):
         # init COM
@@ -34,27 +32,11 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
                 logging.info('Unable to connect to telescope.')
                 raise ValueError('Could not connect to telescope.')
 
-        # do we have a focuser?
-        if self.config['focuser']:
-            self._focuser = win32com.client.Dispatch(self.config['focuser'])
-            if self._focuser.Connected:
-                logging.info('Focuser was already connected.')
-            else:
-                self._focuser.Connected = True
-                if self._focuser.Connected:
-                    logging.info('Connected to focuser.')
-                else:
-                    logging.info('Unable to connect to focuser.')
-                    raise ValueError('Could not connect to focuser.')
-
     def close(self):
         # close connection
         if self._telescope.Connected:
             logging.info('Disconnecting from telescope...')
             self._telescope.Connected = False
-        if self._focuser.Connected:
-            logging.info('Disconnecting from focuser...')
-            self._focuser.Connected = False
 
     @classmethod
     def default_config(cls):
@@ -158,15 +140,6 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             'RA': (c.ra.to_string(sep=':', unit=u.hour, pad=True), 'Right ascension of telescope'),
             'DEC': (c.dec.to_string(sep=':', unit=u.deg, pad=True), 'Declination of telescope')
         }
-
-    @http_async(60000)
-    def set_focus(self, focus: float, *args, **kwargs) -> bool:
-        """sets focus"""
-        raise NotImplementedError
-
-    def get_focus(self, *args, **kwargs) -> float:
-        """returns focus"""
-        raise NotImplementedError
 
 
 __all__ = ['AscomTelescope']
