@@ -5,7 +5,7 @@ import win32com.client
 
 from pytel import PytelModule
 from pytel.interfaces import IFocuser, IFitsHeaderProvider, IStatus
-from pytel.network import http_async
+from pytel.modules import timeout
 
 
 class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
@@ -68,7 +68,7 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
             'TEL-FOCU': (self._focuser.Position / self._focuser.StepSize, 'Focus of telescope [mm]')
         }
 
-    @http_async(60000)
+    @timeout(60000)
     def set_focus(self, focus: float, *args, **kwargs) -> bool:
         """sets focus"""
         # init COM in thread
@@ -96,4 +96,4 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         return self._focuser.Position / self._focuser.StepSize
 
 
-__all__ = ['AscomTelescope']
+__all__ = ['AscomFocuser']

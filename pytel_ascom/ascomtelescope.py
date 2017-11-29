@@ -5,8 +5,8 @@ import pythoncom
 import win32com.client
 
 from pytel.interfaces import IFitsHeaderProvider
+from pytel.modules import timeout
 from pytel.modules.telescope.basetelescope import BaseTelescope
-from pytel.network import http_async
 
 
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
@@ -20,8 +20,15 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         # init COM
         pythoncom.CoInitialize()
 
+        # do we need to chose a device?
+        device = self.config['device']
+        if not device:
+            x = win32com.client.Dispatch("ASCOM.Utilities.Chooser")
+            x.DeviceType = 'Telescope'
+            device = x.Choose(None)
+
         # open connection
-        self._telescope = win32com.client.Dispatch(self.config['device'])
+        self._telescope = win32com.client.Dispatch(device)
         if self._telescope.Connected:
             logging.info('Telescope was already connected.')
         else:
@@ -45,7 +52,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         cfg['focuser'] = None
         return cfg
 
-    @http_async(60000)
+    @timeout(60000)
     def init(self, *args, **kwargs) -> bool:
         """Initialize telescope.
 
@@ -54,7 +61,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
         raise NotImplementedError
 
-    @http_async(60000)
+    @timeout(60000)
     def park(self, *args, **kwargs) -> bool:
         """Park telescope.
 
@@ -63,7 +70,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
         raise NotImplementedError
 
-    @http_async(60000)
+    @timeout(60000)
     def track(self, ra: float, dec: float, *args, **kwargs) -> bool:
         """starts tracking on given coordinates"""
         # init COM in thread
@@ -78,12 +85,12 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         logging.info('Reached destination')
         return True
 
-    @http_async(60000)
+    @timeout(60000)
     def move(self, alt: float, az: float, *args, **kwargs) -> bool:
         """moves to given coordinates"""
         raise NotImplementedError
 
-    @http_async(10000)
+    @timeout(10000)
     def offset(self, dalt: float, daz: float, *args, **kwargs) -> bool:
         """Move an Alt/Az offset, which will be reset on next call of track.
 
