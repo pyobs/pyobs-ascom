@@ -8,6 +8,9 @@ from pytel.interfaces import IFocuser, IFitsHeaderProvider, IStatus
 from pytel.modules import timeout
 
 
+log = logging.getLogger('pytel')
+
+
 class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
     def __init__(self, *args, **kwargs):
         PytelModule.__init__(self, *args, **kwargs)
@@ -22,19 +25,19 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         # init focuser
         self._focuser = win32com.client.Dispatch(self.config['device'])
         if self._focuser.Connected:
-            logging.info('Focuser was already connected.')
+            log.info('Focuser was already connected.')
         else:
             self._focuser.Connected = True
             if self._focuser.Connected:
-                logging.info('Connected to focuser.')
+                log.info('Connected to focuser.')
             else:
-                logging.info('Unable to connect to focuser.')
+                log.info('Unable to connect to focuser.')
                 raise ValueError('Could not connect to focuser.')
 
     def close(self):
         # close connection
         if self._focuser.Connected:
-            logging.info('Disconnecting from focuser...')
+            log.info('Disconnecting from focuser...')
             self._focuser.Connected = False
 
     @classmethod
@@ -75,7 +78,7 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         pythoncom.CoInitialize()
 
         # calculating new focus and move it
-        logging.info('Moving focus to %.2fmm...', focus)
+        log.info('Moving focus to %.2fmm...', focus)
         foc = int(focus * self._focuser.StepSize)
         self._focuser.Move(foc)
 
@@ -84,7 +87,7 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
             time.sleep(0.1)
 
         # finished
-        logging.info('Reached new focus of %.2mm.', self._focuser.Position / self._focuser.StepSize)
+        log.info('Reached new focus of %.2mm.', self._focuser.Position / self._focuser.StepSize)
         return True
 
     def get_focus(self, *args, **kwargs) -> float:

@@ -9,6 +9,9 @@ from pytel.modules import timeout
 from pytel.modules.telescope.basetelescope import BaseTelescope
 
 
+log = logging.getLogger('pytel')
+
+
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
     def __init__(self, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs)
@@ -30,19 +33,19 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         # open connection
         self._telescope = win32com.client.Dispatch(device)
         if self._telescope.Connected:
-            logging.info('Telescope was already connected.')
+            log.info('Telescope was already connected.')
         else:
             self._telescope.Connected = True
             if self._telescope.Connected:
-                logging.info('Connected to telescope.')
+                log.info('Connected to telescope.')
             else:
-                logging.info('Unable to connect to telescope.')
+                log.info('Unable to connect to telescope.')
                 raise ValueError('Could not connect to telescope.')
 
     def close(self):
         # close connection
         if self._telescope.Connected:
-            logging.info('Disconnecting from telescope...')
+            log.info('Disconnecting from telescope...')
             self._telescope.Connected = False
 
     @classmethod
@@ -77,12 +80,12 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         pythoncom.CoInitialize()
 
         # start slewing
-        logging.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
+        log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
         self._telescope.Tracking = True
         self._telescope.SlewToCoordinates(ra / 15., dec)
 
         # finish slewing
-        logging.info('Reached destination')
+        log.info('Reached destination')
         return True
 
     @timeout(60000)
