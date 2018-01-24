@@ -18,7 +18,7 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         # variables
         self._focuser = None
 
-    def open(self):
+    def open(self) -> bool:
         # init COM
         pythoncom.CoInitialize()
 
@@ -31,8 +31,11 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
             if self._focuser.Connected:
                 log.info('Connected to focuser.')
             else:
-                log.info('Unable to connect to focuser.')
-                raise ValueError('Could not connect to focuser.')
+                log.error('Unable to connect to focuser.')
+                return False
+
+        # success
+        return True
 
     def close(self):
         # close connection

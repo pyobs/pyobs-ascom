@@ -19,7 +19,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         # variables
         self._telescope = None
 
-    def open(self):
+    def open(self) -> bool:
         # init COM
         pythoncom.CoInitialize()
 
@@ -39,8 +39,11 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             if self._telescope.Connected:
                 log.info('Connected to telescope.')
             else:
-                log.info('Unable to connect to telescope.')
-                raise ValueError('Could not connect to telescope.')
+                log.error('Unable to connect to telescope.')
+                return False
+
+        # success
+        return True
 
     def close(self):
         # close connection
