@@ -1,13 +1,13 @@
 from distutils.core import setup
 
 setup(
-    name='pytel-ascom',
+    name='pyobs-ascom',
     version='0.1',
-    packages=['pytel_ascom'],
+    packages=['pyobs_ascom'],
     url='',
     license='',
     author='Tim-Oliver Husser',
     author_email='husser@astro.physik.uni-goettingen.de',
-    description='Ascom wrapper for pytel',
+    description='Ascom wrapper for pyobs',
     requires=[]
 )

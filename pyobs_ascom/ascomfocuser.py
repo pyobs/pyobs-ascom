@@ -3,19 +3,20 @@ import time
 import pythoncom
 import win32com.client
 
-from pytel import PytelModule
-from pytel.interfaces import IFocuser, IFitsHeaderProvider, IStatus
-from pytel.modules import timeout
+from pyobs import PyObsModule
+from pyobs.interfaces import IFocuser, IFitsHeaderProvider, IStatus
+from pyobs.modules import timeout
 
 
-log = logging.getLogger('pytel')
+log = logging.getLogger(__name__)
 
 
-class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
-    def __init__(self, *args, **kwargs):
-        PytelModule.__init__(self, *args, **kwargs)
+class AscomFocuser(PyObsModule, IFocuser, IStatus, IFitsHeaderProvider):
+    def __init__(self, device: str, *args, **kwargs):
+        PyObsModule.__init__(self, *args, **kwargs)
 
         # variables
+        self._device = device
         self._focuser = None
 
     def open(self) -> bool:
@@ -23,7 +24,7 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         pythoncom.CoInitialize()
 
         # init focuser
-        self._focuser = win32com.client.Dispatch(self.config['device'])
+        self._focuser = win32com.client.Dispatch(self._device)
         if self._focuser.Connected:
             log.info('Focuser was already connected.')
         else:
@@ -43,12 +44,6 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
             log.info('Disconnecting from focuser...')
             self._focuser.Connected = False
 
-    @classmethod
-    def default_config(cls):
-        cfg = super(AscomFocuser, cls).default_config()
-        cfg['device'] = None
-        return cfg
-
     def status(self, *args, **kwargs) -> dict:
         """returns current status"""
         # init COM in thread
@@ -65,7 +60,11 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         return s
 
     def get_fits_headers(self, *args, **kwargs) -> dict:
-        """get FITS header for the saved status of the telescope"""
+        """Returns FITS header for the current status of the telescope.
+
+        Returns:
+            Dictionary containing FITS headers.
+        """
         # init COM in thread
         pythoncom.CoInitialize()
 
@@ -75,8 +74,13 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
         }
 
     @timeout(60000)
-    def set_focus(self, focus: float, *args, **kwargs) -> bool:
-        """sets focus"""
+    def set_focus(self, focus: float, *args, **kwargs):
+        """Sets new focus.
+
+        Args:
+            focus: New focus value.
+        """
+
         # init COM in thread
         pythoncom.CoInitialize()
 
@@ -91,10 +95,14 @@ class AscomFocuser(PytelModule, IFocuser, IStatus, IFitsHeaderProvider):
 
         # finished
         log.info('Reached new focus of %.2mm.', self._focuser.Position / self._focuser.StepSize)
-        return True
 
     def get_focus(self, *args, **kwargs) -> float:
-        """returns focus"""
+        """Return current focus.
+
+        Returns:
+            Current focus.
+        """
+
         # init COM in thread
         pythoncom.CoInitialize()
 
