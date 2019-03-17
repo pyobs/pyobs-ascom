@@ -99,7 +99,6 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         self._telescope.SlewToCoordinates(ra / 15., dec)
 
         # finish slewing
-        self.telescope_status = IMotion.Status.TRACKING
         log.info('Reached destination')
 
     @timeout(60000)
@@ -123,9 +122,6 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         # track
         self._track(icrs.ra.degree, icrs.dec.degree, abort_event)
 
-        # set telescope to idle
-        self.telescope_status = IMotion.Status.IDLE
-
     @timeout(10000)
     def offset(self, dalt: float, daz: float, *args, **kwargs) -> bool:
         """Move an Alt/Az offset, which will be reset on next call of track.
@@ -146,7 +142,19 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         Returns:
             A string from the Status enumerator.
         """
-        return self.telescope_status.value
+
+        # init COM in thread
+        pythoncom.CoInitialize()
+
+        # what status are we in?
+        if self._telescope.Tracking:
+            return IMotion.Status.TRACKING.value
+        elif self._telescope.Slewing:
+            return IMotion.Status.SLEWING.value
+        elif self._telescope.AtPark:
+            return IMotion.Status.PARKED.value
+        else:
+            return IMotion.Status.IDLE.value
 
     def get_ra_dec(self) -> (float, float):
         """Returns current RA and Dec.
@@ -168,11 +176,14 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             Tuple of current Alt and Az in degrees.
         """
 
-        # init COM in thread
-        pythoncom.CoInitialize()
+        try:
+            # init COM in thread
+            pythoncom.CoInitialize()
 
-        # create sky coordinates
-        return self._telescope.Altitude, self._telescope.Azimuth
+            # create sky coordinates
+            return self._telescope.Altitude, self._telescope.Azimuth
+        except:
+            log.exception("Error")
 
 
 __all__ = ['AscomTelescope']
