@@ -94,11 +94,13 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         pythoncom.CoInitialize()
 
         # start slewing
+        self._change_motion_status(IMotion.Status.SLEWING)
         log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
         self._telescope.Tracking = True
         self._telescope.SlewToCoordinates(ra / 15., dec)
 
         # finish slewing
+        self._change_motion_status(IMotion.Status.TRACKING)
         log.info('Reached destination')
 
     @timeout(60000)
@@ -136,8 +138,11 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """Reset Alt/Az offset."""
         raise NotImplementedError
 
-    def get_motion_status(self) -> str:
+    def get_motion_status(self, device: str = None) -> IMotion.Status:
         """Returns current motion status.
+
+        Args:
+            device: Name of device to get status for, or None.
 
         Returns:
             A string from the Status enumerator.
