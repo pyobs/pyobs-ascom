@@ -4,14 +4,14 @@ import pythoncom
 import win32com.client
 
 from pyobs import PyObsModule
-from pyobs.interfaces import IFocuser, IFitsHeaderProvider, IStatus
+from pyobs.interfaces import IFocuser, IFitsHeaderProvider, IMotion
 from pyobs.modules import timeout
 
 
 log = logging.getLogger(__name__)
 
 
-class AscomFocuser(PyObsModule, IFocuser, IStatus, IFitsHeaderProvider):
+class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
     def __init__(self, device: str, *args, **kwargs):
         PyObsModule.__init__(self, *args, **kwargs)
 
@@ -19,7 +19,10 @@ class AscomFocuser(PyObsModule, IFocuser, IStatus, IFitsHeaderProvider):
         self._device = device
         self._focuser = None
 
-    def open(self) -> bool:
+    def open(self):
+        """Open module."""
+        PyObsModule.open(self)
+
         # init COM
         pythoncom.CoInitialize()
 
@@ -32,32 +35,16 @@ class AscomFocuser(PyObsModule, IFocuser, IStatus, IFitsHeaderProvider):
             if self._focuser.Connected:
                 log.info('Connected to focuser.')
             else:
-                log.error('Unable to connect to focuser.')
-                return False
-
-        # success
-        return True
+                raise ValueError('Unable to connect to focuser.')
 
     def close(self):
+        """Close module."""
+        PyObsModule.close(self)
+
         # close connection
         if self._focuser.Connected:
             log.info('Disconnecting from focuser...')
             self._focuser.Connected = False
-
-    def status(self, *args, **kwargs) -> dict:
-        """returns current status"""
-        # init COM in thread
-        pythoncom.CoInitialize()
-
-        # get status
-        s = super().status(*args, **kwargs)
-
-        # focus
-        if self._focuser.Connected:
-            s['focus'] = self._focuser.Position / self._focuser.StepSize
-
-        # finished
-        return s
 
     def get_fits_headers(self, *args, **kwargs) -> dict:
         """Returns FITS header for the current status of the telescope.
@@ -108,6 +95,9 @@ class AscomFocuser(PyObsModule, IFocuser, IStatus, IFitsHeaderProvider):
 
         # return current focus
         return self._focuser.Position / self._focuser.StepSize
+
+    def get_motion_status(self, device: str = None) -> IMotion.Status:
+        pass
 
 
 __all__ = ['AscomFocuser']
