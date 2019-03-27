@@ -20,7 +20,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
 
         # variables
         self._device = device
-        self._telescope = None
+        self._device_id = None
 
     def open(self):
         """Open module.
@@ -41,24 +41,37 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             log.info('Selected telescope "%s".', self._device)
 
         # open connection
-        self._telescope = win32com.client.Dispatch(self._device)
-        if self._telescope.Connected:
+        device = win32com.client.Dispatch(self._device)
+        if device.Connected:
             log.info('Telescope was already connected.')
         else:
-            self._telescope.Connected = True
-            if self._telescope.Connected:
+            device.Connected = True
+            if device.Connected:
                 log.info('Connected to telescope.')
             else:
                 raise ValueError('Unable to connect to telescope.')
+
+        # Create id
+        self._device_id = pythoncom.CoMarshalInterThreadInterfaceInStream(pythoncom.IID_IDispatch, device)
+
+    def _dev(self):
+        # init COM in thread
+        pythoncom.CoInitialize()
+
+        # get instance from the id
+        return win32com.client.Dispatch(
+            pythoncom.CoGetInterfaceAndReleaseStream(self._device_id, pythoncom.IID_IDispatch)
+        )
 
     def close(self):
         """Clode module."""
         BaseTelescope.close(self)
 
         # close connection
-        if self._telescope.Connected:
+        device = self._dev()
+        if device.Connected:
             log.info('Disconnecting from telescope...')
-            self._telescope.Connected = False
+            device.Connected = False
 
     @timeout(60000)
     def init(self, *args, **kwargs) -> bool:
@@ -91,14 +104,15 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
 
         """starts tracking on given coordinates"""
-        # init COM in thread
-        pythoncom.CoInitialize()
+        
+        # get device
+        device = self._dev()
 
         # start slewing
         self._change_motion_status(IMotion.Status.SLEWING)
         log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
-        self._telescope.Tracking = True
-        self._telescope.SlewToCoordinates(ra / 15., dec)
+        device.Tracking = True
+        device.SlewToCoordinates(ra / 15., dec)
 
         # finish slewing
         self._change_motion_status(IMotion.Status.TRACKING)
@@ -149,15 +163,15 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             A string from the Status enumerator.
         """
 
-        # init COM in thread
-        pythoncom.CoInitialize()
+        # get device
+        device = self._dev()
 
         # what status are we in?
-        if self._telescope.Tracking:
+        if device.Tracking:
             return IMotion.Status.TRACKING.value
-        elif self._telescope.Slewing:
+        elif device.Slewing:
             return IMotion.Status.SLEWING.value
-        elif self._telescope.AtPark:
+        elif device.AtPark:
             return IMotion.Status.PARKED.value
         else:
             return IMotion.Status.IDLE.value
@@ -169,11 +183,11 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             Tuple of current RA and Dec in degrees.
         """
 
-        # init COM in thread
-        pythoncom.CoInitialize()
+        # get device
+        device = self._dev()
 
         # create sky coordinates
-        return self._telescope.RightAscension * 15, self._telescope.Declination
+        return device.RightAscension * 15, device.Declination
 
     def get_alt_az(self) -> (float, float):
         """Returns current Alt and Az.
@@ -182,14 +196,11 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             Tuple of current Alt and Az in degrees.
         """
 
-        try:
-            # init COM in thread
-            pythoncom.CoInitialize()
+        # get device
+        device = self._dev()
 
-            # create sky coordinates
-            return self._telescope.Altitude, self._telescope.Azimuth
-        except:
-            log.exception("Error")
+        # create sky coordinates
+        return device.Altitude, device.Azimuth
 
 
 __all__ = ['AscomTelescope']
