@@ -15,7 +15,7 @@ log = logging.getLogger('pyobs')
 
 
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
-    def __init__(self, device: str, *args, **kwargs):
+    def __init__(self, device: str = None, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs)
 
         # variables
@@ -38,6 +38,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             x = win32com.client.Dispatch("ASCOM.Utilities.Chooser")
             x.DeviceType = 'Telescope'
             self._device = x.Choose(None)
+            log.info('Selected telescope "%s".', self._device)
 
         # open connection
         self._telescope = win32com.client.Dispatch(self._device)
