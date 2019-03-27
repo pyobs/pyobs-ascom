@@ -24,7 +24,7 @@ def com_device(device):
         yield win32com.client.Dispatch(device)
     finally:
         # finish COM
-        pythoncon.CoUninitialize()
+        pythoncom.CoUninitialize()
 
 
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
