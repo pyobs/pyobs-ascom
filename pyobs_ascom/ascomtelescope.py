@@ -1,6 +1,6 @@
 import logging
 import threading
-
+from contextlib import contextmanager
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import pythoncom
@@ -14,13 +14,25 @@ from pyobs.utils.time import Time
 log = logging.getLogger('pyobs')
 
 
+@contextmanager
+def com_device(device):
+    # init COM
+    pythoncom.CoInitialize()
+
+    try:
+        # dispatch COM object
+        yield win32com.client.Dispatch(device)
+    finally:
+        # finish COM
+        pythoncon.CoUninitialize()
+
+
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
     def __init__(self, device: str = None, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs)
 
         # variables
         self._device = device
-        self._device_id = None
 
     def open(self):
         """Open module.
@@ -51,27 +63,18 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             else:
                 raise ValueError('Unable to connect to telescope.')
 
-        # Create id
-        self._device_id = pythoncom.CoMarshalInterThreadInterfaceInStream(pythoncom.IID_IDispatch, device)
-
-    def _dev(self):
-        # init COM in thread
+        # finish COM
         pythoncom.CoInitialize()
-
-        # get instance from the id
-        return win32com.client.Dispatch(
-            pythoncom.CoGetInterfaceAndReleaseStream(self._device_id, pythoncom.IID_IDispatch)
-        )
 
     def close(self):
         """Clode module."""
         BaseTelescope.close(self)
 
         # close connection
-        device = self._dev()
-        if device.Connected:
-            log.info('Disconnecting from telescope...')
-            device.Connected = False
+        with com_device(self._device) as device:
+            if device.Connected:
+                log.info('Disconnecting from telescope...')
+                device.Connected = False
 
     @timeout(60000)
     def init(self, *args, **kwargs) -> bool:
@@ -106,17 +109,16 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """starts tracking on given coordinates"""
         
         # get device
-        device = self._dev()
+        with com_device(self._device) as device:
+            # start slewing
+            self._change_motion_status(IMotion.Status.SLEWING)
+            log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
+            device.Tracking = True
+            device.SlewToCoordinates(ra / 15., dec)
 
-        # start slewing
-        self._change_motion_status(IMotion.Status.SLEWING)
-        log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
-        device.Tracking = True
-        device.SlewToCoordinates(ra / 15., dec)
-
-        # finish slewing
-        self._change_motion_status(IMotion.Status.TRACKING)
-        log.info('Reached destination')
+            # finish slewing
+            self._change_motion_status(IMotion.Status.TRACKING)
+            log.info('Reached destination')
 
     @timeout(60000)
     def _move(self, alt: float, az: float, abort_event: threading.Event):
@@ -164,17 +166,16 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
 
         # get device
-        device = self._dev()
-
-        # what status are we in?
-        if device.Tracking:
-            return IMotion.Status.TRACKING.value
-        elif device.Slewing:
-            return IMotion.Status.SLEWING.value
-        elif device.AtPark:
-            return IMotion.Status.PARKED.value
-        else:
-            return IMotion.Status.IDLE.value
+        with com_device(self._device) as device:
+            # what status are we in?
+            if device.Tracking:
+                return IMotion.Status.TRACKING.value
+            elif device.Slewing:
+                return IMotion.Status.SLEWING.value
+            elif device.AtPark:
+                return IMotion.Status.PARKED.value
+            else:
+                return IMotion.Status.IDLE.value
 
     def get_ra_dec(self) -> (float, float):
         """Returns current RA and Dec.
@@ -184,10 +185,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
 
         # get device
-        device = self._dev()
-
-        # create sky coordinates
-        return device.RightAscension * 15, device.Declination
+        with com_device(self._device) as device:
+            # create sky coordinates
+            return device.RightAscension * 15, device.Declination
 
     def get_alt_az(self) -> (float, float):
         """Returns current Alt and Az.
@@ -197,10 +197,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
 
         # get device
-        device = self._dev()
-
-        # create sky coordinates
-        return device.Altitude, device.Azimuth
+        with com_device(self._device) as device:
+            # create sky coordinates
+            return device.Altitude, device.Azimuth
 
 
 __all__ = ['AscomTelescope']
