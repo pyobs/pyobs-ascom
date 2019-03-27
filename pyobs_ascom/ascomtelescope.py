@@ -10,21 +10,10 @@ from pyobs.interfaces import IFitsHeaderProvider, IMotion
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
 from pyobs.utils.time import Time
+from .com import  com_device
+
 
 log = logging.getLogger('pyobs')
-
-
-@contextmanager
-def com_device(device):
-    # init COM
-    pythoncom.CoInitialize()
-
-    try:
-        # dispatch COM object
-        yield win32com.client.Dispatch(device)
-    finally:
-        # finish COM
-        pythoncom.CoUninitialize()
 
 
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
