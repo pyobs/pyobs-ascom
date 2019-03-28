@@ -31,9 +31,9 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
             x = win32com.client.Dispatch("ASCOM.Utilities.Chooser")
             x.DeviceType = 'Focuser'
             self._device = x.Choose(None)
-            log.info('Selected telescope "%s".', self._device)
+            log.info('Selected focuser "%s".', self._device)
 
-        # init focuser
+        # open connection
         device = win32com.client.Dispatch(self._device)
         if device.Connected:
             log.info('Focuser was already connected.')
@@ -43,7 +43,7 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
                 log.info('Connected to focuser.')
             else:
                 raise ValueError('Unable to connect to focuser.')
-            
+
         # finish COM
         pythoncom.CoInitialize()
 
