@@ -59,8 +59,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """Clode module."""
         BaseTelescope.close(self)
 
-        # close connection
+        # get device
         with com_device(self._device) as device:
+            # close connection
             if device.Connected:
                 log.info('Disconnecting from telescope...')
                 device.Connected = False
