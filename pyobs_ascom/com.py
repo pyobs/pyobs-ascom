@@ -1,4 +1,5 @@
 import pythoncom
+from contextlib import contextmanager
 
 
 @contextmanager

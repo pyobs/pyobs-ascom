@@ -1,6 +1,5 @@
 import logging
 import threading
-from contextlib import contextmanager
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 import pythoncom
