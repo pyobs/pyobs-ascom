@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
-    def __init__(self, device: str, *args, **kwargs):
+    def __init__(self, device: str = None, *args, **kwargs):
         PyObsModule.__init__(self, *args, **kwargs)
 
         # variables
@@ -25,6 +25,13 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
 
         # init COM
         pythoncom.CoInitialize()
+
+        # do we need to chose a device?
+        if not self._device:
+            x = win32com.client.Dispatch("ASCOM.Utilities.Chooser")
+            x.DeviceType = 'Focuser'
+            self._device = x.Choose(None)
+            log.info('Selected telescope "%s".', self._device)
 
         # init focuser
         device = win32com.client.Dispatch(self._device)
