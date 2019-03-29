@@ -23,40 +23,19 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
         """Open module."""
         PyObsModule.open(self)
 
-        # init COM
-        pythoncom.CoInitialize()
-
         # do we need to chose a device?
         if not self._device:
+            # init COM
+            pythoncom.CoInitialize()
+
+            # ask user
             x = win32com.client.Dispatch("ASCOM.Utilities.Chooser")
             x.DeviceType = 'Focuser'
             self._device = x.Choose(None)
             log.info('Selected focuser "%s".', self._device)
 
-        # open connection
-        device = win32com.client.Dispatch(self._device)
-        if device.Connected:
-            log.info('Focuser was already connected.')
-        else:
-            device.Connected = True
-            if device.Connected:
-                log.info('Connected to focuser.')
-            else:
-                raise ValueError('Unable to connect to focuser.')
-
-        # finish COM
-        pythoncom.CoInitialize()
-
-    def close(self):
-        """Close module."""
-        PyObsModule.close(self)
-
-        # get device
-        with com_device(self._device) as device:
-            # close connection
-            if device.Connected:
-                log.info('Disconnecting from focuser...')
-                device.Connected = False
+            # finish COM
+            pythoncom.CoInitialize()
 
     def get_fits_headers(self, *args, **kwargs) -> dict:
         """Returns FITS header for the current status of the telescope.
