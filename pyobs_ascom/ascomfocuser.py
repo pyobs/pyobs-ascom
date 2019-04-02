@@ -71,7 +71,7 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
                 time.sleep(0.1)
 
             # finished
-            log.info('Reached new focus of %.2mm.', device.Position / device.StepSize)
+            log.info('Reached new focus of %.2fmm.', device.Position / device.StepSize)
 
     def get_focus(self, *args, **kwargs) -> float:
         """Return current focus.
