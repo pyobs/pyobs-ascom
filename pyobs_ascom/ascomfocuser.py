@@ -67,7 +67,7 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
             device.Move(foc)
 
             # wait for it
-            while device.IsMoving:
+            while abs(device.Position - foc) > 10:
                 time.sleep(0.1)
 
             # finished
