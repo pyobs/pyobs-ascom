@@ -63,7 +63,7 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
         with com_device(self._device) as device:
             # calculating new focus and move it
             log.info('Moving focus to %.2fmm...', focus)
-            foc = int(focus * device.StepSize)
+            foc = int(focus * device.StepSize * 1000.)
             device.Move(foc)
 
             # wait for it
@@ -83,7 +83,7 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
         # get device
         with com_device(self._device) as device:
             # return current focus
-            return device.Position / device.StepSize
+            return device.Position / device.StepSize / 1000.
 
     def get_motion_status(self, device: str = None) -> IMotion.Status:
         pass
