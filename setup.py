@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='pyobs-ascom',
-    version='0.1',
+    version='0.2',
     packages=['pyobs_ascom'],
     url='',
     license='',
