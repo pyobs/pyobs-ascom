@@ -124,7 +124,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
 
         # alt/az coordinates to ra/dec
         coords = SkyCoord(alt=alt * u.degree, az=az * u.degree, obstime=Time.now(),
-                          location=self.environment.location, frame='altaz')
+                          location=self.location, frame='altaz')
         icrs = coords.icrs
 
         # track
