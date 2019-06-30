@@ -131,7 +131,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         self._track(icrs.ra.degree, icrs.dec.degree, abort_event)
 
     @timeout(10000)
-    def offset(self, dalt: float, daz: float, *args, **kwargs) -> bool:
+    def offset_altaz(self, dalt: float, daz: float, *args, **kwargs) -> bool:
         """Move an Alt/Az offset, which will be reset on next call of track.
 
         Args:
