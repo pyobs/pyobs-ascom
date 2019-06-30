@@ -83,7 +83,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
         raise NotImplementedError
 
-    def _track(self, ra: float, dec: float, abort_event: threading.Event):
+    def _track_radec(self, ra: float, dec: float, abort_event: threading.Event):
         """Actually starts tracking on given coordinates. Must be implemented by derived classes.
 
         Args:
@@ -110,7 +110,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             log.info('Reached destination')
 
     @timeout(60000)
-    def _move(self, alt: float, az: float, abort_event: threading.Event):
+    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
         """Actually moves to given coordinates. Must be implemented by derived classes.
 
         Args:
@@ -128,7 +128,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         icrs = coords.icrs
 
         # track
-        self._track(icrs.ra.degree, icrs.dec.degree, abort_event)
+        self._track_radec(icrs.ra.degree, icrs.dec.degree, abort_event)
 
     @timeout(10000)
     def offset_altaz(self, dalt: float, daz: float, *args, **kwargs) -> bool:
