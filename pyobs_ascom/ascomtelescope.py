@@ -166,7 +166,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             else:
                 return IMotion.Status.IDLE.value
 
-    def get_ra_dec(self) -> (float, float):
+    def get_radec(self) -> (float, float):
         """Returns current RA and Dec.
 
         Returns:
@@ -178,7 +178,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
             # create sky coordinates
             return device.RightAscension * 15, device.Declination
 
-    def get_alt_az(self) -> (float, float):
+    def get_altaz(self) -> (float, float):
         """Returns current Alt and Az.
 
         Returns:
