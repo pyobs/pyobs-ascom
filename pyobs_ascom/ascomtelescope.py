@@ -5,7 +5,7 @@ from astropy import units as u
 import pythoncom
 import win32com.client
 
-from pyobs.interfaces import IFitsHeaderProvider, IMotion
+from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquitorialMount
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
 from pyobs.utils.time import Time
@@ -15,12 +15,20 @@ from .com import  com_device
 log = logging.getLogger('pyobs')
 
 
-class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
+class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquitorialMount):
     def __init__(self, device: str = None, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs)
 
         # variables
         self._device = device
+
+        # absolute position in ra/dec
+        self._current_ra = 0
+        self._current_dec = 0
+
+        # offsets in ra/dec
+        self._offset_ra = 0
+        self._offset_dec = 0
 
     def open(self):
         """Open module.
@@ -96,12 +104,16 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         """
 
         """starts tracking on given coordinates"""
-        
+
+        # store position and reset offsets
+        self._current_ra, self._current_dec = ra, dec
+        self._offset_ra, self._offset_dec = 0, 0
+
         # get device
         with com_device(self._device) as device:
             # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
+            log.info("Setting telescope to RA=%.2f, Dec=%.2f...", ra, dec)
             device.Tracking = True
             device.SlewToCoordinates(ra / 15., dec)
 
@@ -131,18 +143,36 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         self._track_radec(icrs.ra.degree, icrs.dec.degree, abort_event)
 
     @timeout(10000)
-    def offset_altaz(self, dalt: float, daz: float, *args, **kwargs) -> bool:
-        """Move an Alt/Az offset, which will be reset on next call of track.
+    def set_radec_offsets(self, dra: float, ddec: float, *args, **kwargs):
+        """Move an RA/Dec offset.
 
         Args:
-            dalt: Altitude offset in degrees.
-            daz: Azimuth offset in degrees.
-        """
-        raise NotImplementedError
+            dra: RA offset in degrees.
+            ddec: Dec offset in degrees.
 
-    def reset_offset(self, *args, **kwargs) -> bool:
-        """Reset Alt/Az offset."""
-        raise NotImplementedError
+        Raises:
+            ValueError: If offset could not be set.
+        """
+
+        # get device
+        with com_device(self._device) as device:
+            # start slewing
+            self._change_motion_status(IMotion.Status.SLEWING)
+            log.info("Setting telescope offsets to dRA=%.2f, dDec=%.2f...", dra, ddec)
+            device.Tracking = True
+            device.SlewToCoordinates((self._current_ra + self._offset_ra) / 15., self._current_dec + self._offset_dec)
+
+            # finish slewing
+            self._change_motion_status(IMotion.Status.TRACKING)
+            log.info('Reached destination.')
+
+    def get_radec_offsets(self, *args, **kwargs) -> (float, float):
+        """Get RA/Dec offset.
+
+        Returns:
+            Tuple with RA and Dec offsets.
+        """
+        return self._offset_ra, self._offset_dec
 
     def get_motion_status(self, device: str = None) -> IMotion.Status:
         """Returns current motion status.
@@ -176,7 +206,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider):
         # get device
         with com_device(self._device) as device:
             # create sky coordinates
-            return device.RightAscension * 15, device.Declination
+            return self._current_ra, self._current_dec
 
     def get_altaz(self) -> (float, float):
         """Returns current Alt and Az.
