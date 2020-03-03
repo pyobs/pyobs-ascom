@@ -5,7 +5,7 @@ from astropy import units as u
 import pythoncom
 import win32com.client
 
-from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquitorialMount
+from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquatorialMount
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
 from pyobs.utils.time import Time
@@ -15,7 +15,7 @@ from .com import  com_device
 log = logging.getLogger('pyobs')
 
 
-class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquitorialMount):
+class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
     def __init__(self, device: str = None, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs)
 
