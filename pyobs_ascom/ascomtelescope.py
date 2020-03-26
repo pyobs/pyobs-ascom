@@ -184,14 +184,17 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         """
         return self._offset_ra, self._offset_dec
 
-    def get_motion_status(self, device: str = None) -> IMotion.Status:
+    def get_motion_status(self, interface: str = None, *args, **kwargs) -> IMotion.Status:
         """Returns current motion status.
 
         Args:
-            device: Name of device to get status for, or None.
+            interface: Name of interface to get status for, or None.
 
         Returns:
             A string from the Status enumerator.
+
+        Raises:
+            KeyError: If interface is not known.
         """
 
         # get device
