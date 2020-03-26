@@ -8,6 +8,7 @@ import win32com.client
 from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquatorialMount
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
+from pyobs.utils.threads import LockWithAbort
 from pyobs.utils.time import Time
 from .com import  com_device
 
@@ -162,23 +163,25 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             ValueError: If offset could not be set.
         """
 
-        # start slewing
-        self._change_motion_status(IMotion.Status.SLEWING)
-        log.info("Setting telescope offsets to dRA=%.2f, dDec=%.2f...", dra, ddec)
+        # acquire lock
+        with LockWithAbort(self._lock_moving, self._abort_move):
+            # start slewing
+            self._change_motion_status(IMotion.Status.SLEWING)
+            log.info("Setting telescope offsets to dRA=%.2f, dDec=%.2f...", dra, ddec)
 
-        # get current coordinates
-        ra, dec = self.get_radec()
+            # get current coordinates
+            ra, dec = self.get_radec()
 
-        # set offsets
-        self._offset_ra = dra
-        self._offset_dec = ddec
+            # set offsets
+            self._offset_ra = dra
+            self._offset_dec = ddec
 
-        # move
-        self.__move(ra + self._offset_ra, dec + self._offset_dec, True)
+            # move
+            self.__move(ra + self._offset_ra, dec + self._offset_dec, True, self._abort_move)
 
-        # finish slewing
-        self._change_motion_status(IMotion.Status.TRACKING)
-        log.info('Reached destination.')
+            # finish slewing
+            self._change_motion_status(IMotion.Status.TRACKING)
+            log.info('Reached destination.')
 
     def get_radec_offsets(self, *args, **kwargs) -> (float, float):
         """Get RA/Dec offset.
