@@ -2,6 +2,7 @@ import logging
 import threading
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+import numpy as np
 import pythoncom
 import win32com.client
 
@@ -99,6 +100,13 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             Exception: On any error.
         """
 
+        # get current coordinates
+        cur_ra, cur_dec = self.get_radec()
+
+        # add offset
+        ra += self._offset_ra * np.cos(cur_dec)
+        dec += self._offset_dec
+
         # get device
         with com_device(self._device) as device:
             # start slewing
@@ -128,7 +136,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         """
 
         # move telescope
-        self.__move(ra + self._offset_ra, dec + self._offset_dec, True, abort_event)
+        self.__move(ra, dec, True, abort_event)
 
     @timeout(60000)
     def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
@@ -149,7 +157,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         icrs = coords.icrs
 
         # move
-        self.__move(icrs.ra.degree + self._offset_ra, icrs.dec.degree + self._offset_dec, False, abort_event)
+        self.__move(icrs.ra.degree, icrs.dec.degree, False, abort_event)
 
     @timeout(10000)
     def set_radec_offsets(self, dra: float, ddec: float, *args, **kwargs):
@@ -177,7 +185,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             self._offset_dec = ddec
 
             # move
-            self.__move(ra + self._offset_ra, dec + self._offset_dec, True, self._abort_move)
+            self.__move(ra, dec, True, self._abort_move)
 
             # finish slewing
             self._change_motion_status(IMotion.Status.TRACKING)
@@ -231,7 +239,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             icrs = coords.icrs
 
             # return RA/Dec
-            return float(icrs.ra.degree) - self._offset_ra, float(icrs.dec.degree) - self._offset_dec
+            return float(icrs.ra.degree) - self._offset_ra * np.cos(self._offset_dec), \
+                   float(icrs.dec.degree) - self._offset_dec
 
     def get_altaz(self, *args, **kwargs) -> (float, float):
         """Returns current Alt and Az.
