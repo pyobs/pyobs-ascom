@@ -104,8 +104,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         cur_ra, cur_dec = self.get_radec()
 
         # add offset
-        ra += float(self._offset_ra * np.cos(cur_dec) / 3600.)
-        dec += float(self._offset_dec / 3600.)
+        ra += float(self._offset_ra * np.cos(cur_dec))
+        dec += float(self._offset_dec)
 
         # get device
         with com_device(self._device) as device:
@@ -175,7 +175,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         with LockWithAbort(self._lock_moving, self._abort_move):
             # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Setting telescope offsets to dRA=%.2f, dDec=%.2f...", dra, ddec)
+            log.info('Setting telescope offsets to dRA=%.2f", dDec=%.2f"...', dra * 3600., ddec * 3600.)
 
             # get current coordinates
             ra, dec = self.get_radec()
@@ -233,14 +233,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
 
         # get device
         with com_device(self._device) as device:
-            # alt/az coordinates to ra/dec
-            coords = SkyCoord(alt=device.Altitude * u.degree, az=device.Azimuth * u.degree, obstime=Time.now(),
-                              location=self.location, frame='altaz')
-            icrs = coords.icrs
-
-            # return RA/Dec
-            return float(icrs.ra.degree - self._offset_ra * np.cos(self._offset_dec)), \
-                   float(icrs.dec.degree - self._offset_dec)
+            return float(device.RightAscension * 15. - self._offset_ra * np.cos(device.Declination)),\
+                   float(device.Declination - self._offset_dec)
 
     def get_altaz(self, *args, **kwargs) -> (float, float):
         """Returns current Alt and Az.
