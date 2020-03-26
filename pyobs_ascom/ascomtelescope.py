@@ -106,6 +106,10 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             device.SlewToCoordinates(ra / 15., dec)
             device.Tracking = tracking
 
+            # wait for it
+            while device.Slewing:
+                abort_event.wait(1)
+
             # finish slewing
             self._change_motion_status(IMotion.Status.TRACKING if tracking else IMotion.Status.POSITIONED)
             log.info('Reached destination')
