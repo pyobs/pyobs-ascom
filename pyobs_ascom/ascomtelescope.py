@@ -17,14 +17,10 @@ log = logging.getLogger('pyobs')
 
 class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
     def __init__(self, device: str = None, *args, **kwargs):
-        BaseTelescope.__init__(self, *args, **kwargs)
+        BaseTelescope.__init__(self, *args, **kwargs, motion_status_interfaces=['ITelescope'])
 
         # variables
         self._device = device
-
-        # absolute position in ra/dec
-        self._current_ra = 0
-        self._current_dec = 0
 
         # offsets in ra/dec
         self._offset_ra = 0
@@ -73,23 +69,46 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
                 log.info('Disconnecting from telescope...')
                 device.Connected = False
 
-    @timeout(60000)
-    def init(self, *args, **kwargs) -> bool:
+    def init(self, *args, **kwargs):
         """Initialize telescope.
 
-        Returns:
-            (bool) Success
+        Raises:
+            ValueError: If telescope could not be initialized.
         """
-        raise NotImplementedError
+        pass
 
-    @timeout(60000)
-    def park(self, *args, **kwargs) -> bool:
+    def park(self, *args, **kwargs):
         """Park telescope.
 
-        Returns:
-            (bool) Success
+        Raises:
+            ValueError: If telescope could not be parked.
         """
-        raise NotImplementedError
+        pass
+
+    def __move(self, ra: float, dec: float, tracking: bool, abort_event: threading.Event):
+        """Move to given RA/Dec.
+
+        Args:
+            ra: RA in deg to track.
+            dec: Dec in deg to track.
+            tracking: Whether to start tracking.
+            abort_event: Event that gets triggered when movement should be aborted.
+
+        Raises:
+            Exception: On any error.
+        """
+
+        # get device
+        with com_device(self._device) as device:
+            # start slewing
+            self._change_motion_status(IMotion.Status.SLEWING)
+            log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
+            device.SlewToCoordinates(ra / 15., dec)
+            device.Tracking = tracking
+
+            # finish slewing
+            self._change_motion_status(IMotion.Status.TRACKING if tracking else IMotion.Status.POSITIONED)
+            log.info('Reached destination')
 
     def _track_radec(self, ra: float, dec: float, abort_event: threading.Event):
         """Actually starts tracking on given coordinates. Must be implemented by derived classes.
@@ -103,23 +122,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             Exception: On any error.
         """
 
-        """starts tracking on given coordinates"""
-
-        # store position and reset offsets
-        self._current_ra, self._current_dec = ra, dec
-        self._offset_ra, self._offset_dec = 0, 0
-
-        # get device
-        with com_device(self._device) as device:
-            # start slewing
-            self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Setting telescope to RA=%.2f, Dec=%.2f...", ra, dec)
-            device.Tracking = True
-            device.SlewToCoordinates(ra / 15., dec)
-
-            # finish slewing
-            self._change_motion_status(IMotion.Status.TRACKING)
-            log.info('Reached destination')
+        # move telescope
+        self.__move(ra + self._offset_ra, dec + self._offset_dec, True, abort_event)
 
     @timeout(60000)
     def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
@@ -139,8 +143,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
                           location=self.location, frame='altaz')
         icrs = coords.icrs
 
-        # track
-        self._track_radec(icrs.ra.degree, icrs.dec.degree, abort_event)
+        # move
+        self.__move(icrs.ra.degree + self._offset_ra, icrs.dec.degree + self._offset_dec, False, abort_event)
 
     @timeout(10000)
     def set_radec_offsets(self, dra: float, ddec: float, *args, **kwargs):
@@ -154,17 +158,23 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             ValueError: If offset could not be set.
         """
 
-        # get device
-        with com_device(self._device) as device:
-            # start slewing
-            self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Setting telescope offsets to dRA=%.2f, dDec=%.2f...", dra, ddec)
-            device.Tracking = True
-            device.SlewToCoordinates((self._current_ra + self._offset_ra) / 15., self._current_dec + self._offset_dec)
+        # start slewing
+        self._change_motion_status(IMotion.Status.SLEWING)
+        log.info("Setting telescope offsets to dRA=%.2f, dDec=%.2f...", dra, ddec)
 
-            # finish slewing
-            self._change_motion_status(IMotion.Status.TRACKING)
-            log.info('Reached destination.')
+        # get current coordinates
+        ra, dec = self.get_radec()
+
+        # set offsets
+        self._offset_ra = dra
+        self._offset_dec = ddec
+
+        # move
+        self.__move(ra + self._offset_ra, dec + self._offset_dec, True)
+
+        # finish slewing
+        self._change_motion_status(IMotion.Status.TRACKING)
+        log.info('Reached destination.')
 
     def get_radec_offsets(self, *args, **kwargs) -> (float, float):
         """Get RA/Dec offset.
@@ -205,8 +215,13 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
 
         # get device
         with com_device(self._device) as device:
-            # create sky coordinates
-            return self._current_ra, self._current_dec
+            # alt/az coordinates to ra/dec
+            coords = SkyCoord(alt=device.Altitude * u.degree, az=device.Azimuth * u.degree, obstime=Time.now(),
+                              location=self.location, frame='altaz')
+            icrs = coords.icrs
+
+            # return RA/Dec
+            return float(icrs.ra.degree) - self._offset_ra, float(icrs.dec.degree) - self._offset_dec
 
     def get_altaz(self) -> (float, float):
         """Returns current Alt and Az.
@@ -219,6 +234,27 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         with com_device(self._device) as device:
             # create sky coordinates
             return device.Altitude, device.Azimuth
+
+    def stop_motion(self, device: str = None, *args, **kwargs):
+        """Stop the motion.
+
+        Args:
+            device: Name of device to stop, or None for all.
+        """
+
+        # get device
+        with com_device(self._device) as device:
+            # stop telescope
+            device.AbortSlew()
+            device.Tracking = False
+
+    def is_ready(self, *args, **kwargs) -> bool:
+        """Returns the device is "ready", whatever that means for the specific device.
+
+        Returns:
+            Whether device is ready
+        """
+        return True
 
 
 __all__ = ['AscomTelescope']

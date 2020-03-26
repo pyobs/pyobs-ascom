@@ -6,6 +6,7 @@ import win32com.client
 
 from pyobs import PyObsModule
 from pyobs.interfaces import IFocuser, IFitsHeaderProvider, IMotion
+from pyobs.mixins import MotionStatusMixin
 from pyobs.modules import timeout
 from pyobs.utils.threads import LockWithAbort
 from .com import com_device
@@ -14,16 +15,20 @@ from .com import com_device
 log = logging.getLogger(__name__)
 
 
-class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
+class AscomFocuser(MotionStatusMixin, IFocuser, IFitsHeaderProvider, PyObsModule):
     def __init__(self, device: str = None, *args, **kwargs):
         PyObsModule.__init__(self, *args, **kwargs)
 
         # variables
         self._device = device
+        self._focus_offset = 0
 
         # allow to abort motion
         self._lock_motion = threading.Lock()
         self._abort_motion = threading.Event()
+
+        # init mixins
+        MotionStatusMixin.__init__(self, motion_status_interfaces=['IFocuser'])
 
     def open(self):
         """Open module."""
@@ -42,6 +47,25 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
 
             # finish COM
             pythoncom.CoInitialize()
+
+        # open mixins
+        MotionStatusMixin.open(self)
+
+    def init(self, *args, **kwargs):
+        """Initialize device.
+
+        Raises:
+            ValueError: If device could not be initialized.
+        """
+        pass
+
+    def park(self, *args, **kwargs):
+        """Park device.
+
+        Raises:
+            ValueError: If device could not be parked.
+        """
+        pass
 
     def get_fits_headers(self, namespaces: list = None, *args, **kwargs) -> dict:
         """Returns FITS header for the current status of this module.
@@ -68,12 +92,42 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
             focus: New focus value.
         """
 
+        # set focus + offset
+        self._set_focus(focus + self._focus_offset)
+
+    def set_focus_offset(self, offset: float, *args, **kwargs):
+        """Sets focus offset.
+
+        Args:
+            offset: New focus offset.
+
+        Raises:
+            InterruptedError: If focus was interrupted.
+        """
+
+        # get current focus (without offset)
+        focus = self.get_focus()
+
+        # set offset
+        self._focus_offset = offset
+
+        # go to focus
+        self._set_focus(focus + self._focus_offset)
+
+    def _set_focus(self, focus):
+        """Actually sets new focus.
+
+        Args:
+            focus: New focus value.
+        """
+
         # acquire lock
         with LockWithAbort(self._lock_motion, self._abort_motion):
             # get device
             with com_device(self._device) as device:
                 # calculating new focus and move it
                 log.info('Moving focus to %.2fmm...', focus)
+                self._change_motion_status(IMotion.Status.SLEWING, interface='IFocuser')
                 foc = int(focus * device.StepSize * 1000.)
                 device.Move(foc)
 
@@ -89,6 +143,7 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
 
                 # finished
                 log.info('Reached new focus of %.2fmm.', device.Position / device.StepSize / 1000.)
+                self._change_motion_status(IMotion.Status.POSITIONED, interface='IFocuser')
 
     def get_focus(self, *args, **kwargs) -> float:
         """Return current focus.
@@ -99,11 +154,36 @@ class AscomFocuser(PyObsModule, IFocuser, IFitsHeaderProvider):
 
         # get device
         with com_device(self._device) as device:
-            # return current focus
-            return device.Position / device.StepSize / 1000.
+            # return current focus - offset
+            return device.Position / device.StepSize / 1000. - self._focus_offset
 
-    def get_motion_status(self, device: str = None) -> IMotion.Status:
-        pass
+    def get_focus_offset(self, *args, **kwargs) -> float:
+        """Return current focus offset.
+
+        Returns:
+            Current focus offset.
+        """
+        return self._focus_offset
+
+    def stop_motion(self, device: str = None, *args, **kwargs):
+        """Stop the motion.
+
+        Args:
+            device: Name of device to stop, or None for all.
+        """
+
+        # get device
+        with com_device(self._device) as device:
+            # stop motion
+            return device.Halt()
+
+    def is_ready(self, *args, **kwargs) -> bool:
+        """Returns the device is "ready", whatever that means for the specific device.
+
+        Returns:
+            True, if telescope is initialized and not in an error state.
+        """
+        return True
 
 
 __all__ = ['AscomFocuser']
