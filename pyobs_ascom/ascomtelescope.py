@@ -209,7 +209,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             else:
                 return IMotion.Status.IDLE.value
 
-    def get_radec(self) -> (float, float):
+    def get_radec(self, *args, **kwargs) -> (float, float):
         """Returns current RA and Dec.
 
         Returns:
@@ -226,7 +226,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             # return RA/Dec
             return float(icrs.ra.degree) - self._offset_ra, float(icrs.dec.degree) - self._offset_dec
 
-    def get_altaz(self) -> (float, float):
+    def get_altaz(self, *args, **kwargs) -> (float, float):
         """Returns current Alt and Az.
 
         Returns:
