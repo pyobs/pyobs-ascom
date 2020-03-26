@@ -239,8 +239,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             icrs = coords.icrs
 
             # return RA/Dec
-            return float(icrs.ra.degree) - self._offset_ra * np.cos(self._offset_dec), \
-                   float(icrs.dec.degree) - self._offset_dec
+            return float(icrs.ra.degree - self._offset_ra * np.cos(self._offset_dec)), \
+                   float(icrs.dec.degree - self._offset_dec)
 
     def get_altaz(self, *args, **kwargs) -> (float, float):
         """Returns current Alt and Az.
