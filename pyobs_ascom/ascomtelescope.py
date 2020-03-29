@@ -245,8 +245,13 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
 
         # get device
         with com_device(self._device) as device:
+            # correct azimuth
+            az = device.Azimuth
+            if az >= 360.:
+                az -= 360
+
             # create sky coordinates
-            return device.Altitude, device.Azimuth
+            return device.Altitude, az
 
     def stop_motion(self, device: str = None, *args, **kwargs):
         """Stop the motion.
