@@ -104,6 +104,10 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         cur_ra, cur_dec = self.get_radec()
 
         # add offset
+        log.info('cur_dec: %.5f', cur_dec)
+        log.info('radians cur_dec: %.5f', np.radians(cur_dec))
+        log.info('cos radians cur_dec: %.5f', np.cos(np.radians(cur_dec)))
+        log.info('ra offset: %.5f" -> %.5f"', self._offset_ra * 3600, self._offset_ra * np.cos(np.radians(cur_dec)) * 3600)
         ra += float(self._offset_ra * np.cos(np.radians(cur_dec)))
         dec += float(self._offset_dec)
 
