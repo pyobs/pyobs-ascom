@@ -1,6 +1,6 @@
 import logging
 import threading
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, ICRS
 from astropy import units as u
 import numpy as np
 import pythoncom
@@ -107,11 +107,16 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         ra += float(self._offset_ra * np.cos(np.radians(cur_dec)))
         dec += float(self._offset_dec)
 
+        # to skycoords
+        ra_dec = SkyCoord(ra * u.deg, dec * u.deg, frame=ICRS)
+
         # get device
         with com_device(self._device) as device:
             # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Moving telescope to RA=%.2f, Dec=%.2f...", ra, dec)
+            log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
+                     ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
+                     ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
             device.SlewToCoordinates(ra / 15., dec)
             device.Tracking = tracking
 
