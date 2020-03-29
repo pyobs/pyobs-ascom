@@ -246,7 +246,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         # get device
         with com_device(self._device) as device:
             # correct azimuth
-            az = device.Azimuth
+            az = device.Azimuth + 180
             if az >= 360.:
                 az -= 360
 
