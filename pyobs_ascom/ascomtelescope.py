@@ -104,7 +104,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         cur_ra, cur_dec = self.get_radec()
 
         # add offset (convert RA offset from hours to degrees)
-        ra += float(self._offset_ra * 15. * np.cos(np.radians(cur_dec)))
+        ra += float(self._offset_ra * np.cos(np.radians(cur_dec)))
         dec += float(self._offset_dec)
 
         # to skycoords
@@ -239,7 +239,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         # get device
         with com_device(self._device) as device:
             ra_off = self._offset_ra * np.cos(np.radians(device.Declination))
-            return float((device.RightAscension - ra_off) * 15),\
+            return float(device.RightAscension * 15 - ra_off),\
                    float(device.Declination - self._offset_dec)
 
     def get_altaz(self, *args, **kwargs) -> (float, float):
