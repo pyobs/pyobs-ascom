@@ -104,7 +104,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         cur_ra, cur_dec = self.get_radec()
 
         # add offset (convert RA offset from hours to degrees)
-        ra += float(self._offset_ra * np.cos(np.radians(cur_dec)))
+        ra += float(self._offset_ra / np.cos(np.radians(cur_dec)))
         dec += float(self._offset_dec)
 
         # to skycoords
