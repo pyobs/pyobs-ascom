@@ -238,7 +238,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
 
         # get device
         with com_device(self._device) as device:
-            ra_off = self._offset_ra * np.cos(np.radians(device.Declination))
+            ra_off = self._offset_ra / np.cos(np.radians(device.Declination))
             return float(device.RightAscension * 15 - ra_off),\
                    float(device.Declination - self._offset_dec)
 
