@@ -140,6 +140,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             Exception: On any error.
         """
 
+        # reset offsets
+        self._offset_ra, self._offset_dec = 0, 0
+
         # move telescope
         self.__move(ra, dec, True, abort_event)
 
@@ -155,6 +158,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         Raises:
             Exception: On error.
         """
+
+        # reset offsets
+        self._offset_ra, self._offset_dec = 0, 0
 
         # alt/az coordinates to ra/dec
         coords = SkyCoord(alt=alt * u.degree, az=az * u.degree, obstime=Time.now(),
