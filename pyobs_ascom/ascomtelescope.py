@@ -87,13 +87,48 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         """
         pass
 
-    def __move(self, ra: float, dec: float, tracking: bool, abort_event: threading.Event):
+    @timeout(60000)
+    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
+        """Actually moves to given coordinates. Must be implemented by derived classes.
+
+        Args:
+            alt: Alt in deg to move to.
+            az: Az in deg to move to.
+            abort_event: Event that gets triggered when movement should be aborted.
+
+        Raises:
+            Exception: On error.
+        """
+
+        # reset offsets
+        self._offset_ra, self._offset_dec = 0, 0
+
+        # correct azimuth
+        az += 180
+        if az >= 360.:
+            az -= 360
+
+        # get device
+        with com_device(self._device) as device:
+            # start slewing
+            self._change_motion_status(IMotion.Status.SLEWING)
+            log.info("Moving telescope to Alt=%.3f°, Az=%.3f°...", alt, az)
+            device.SlewToAltAz(alt, az)
+
+            # wait for it
+            while device.Slewing:
+                abort_event.wait(1)
+
+            # finish slewing
+            self._change_motion_status(IMotion.Status.POSITIONED)
+            log.info('Reached destination')
+
+    def __move_radec(self, ra: float, dec: float, abort_event: threading.Event):
         """Move to given RA/Dec.
 
         Args:
             ra: RA in deg to track.
             dec: Dec in deg to track.
-            tracking: Whether to start tracking.
             abort_event: Event that gets triggered when movement should be aborted.
 
         Raises:
@@ -117,7 +152,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
                      ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
                      ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
-            device.Tracking = tracking
+            device.Tracking = True
             device.SlewToCoordinates(ra / 15., dec)
 
             # wait for it
@@ -125,7 +160,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
                 abort_event.wait(1)
 
             # finish slewing
-            self._change_motion_status(IMotion.Status.TRACKING if tracking else IMotion.Status.POSITIONED)
+            self._change_motion_status(IMotion.Status.TRACKING)
             log.info('Reached destination')
 
     def _track_radec(self, ra: float, dec: float, abort_event: threading.Event):
@@ -144,31 +179,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         self._offset_ra, self._offset_dec = 0, 0
 
         # move telescope
-        self.__move(ra, dec, True, abort_event)
-
-    @timeout(60000)
-    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
-        """Actually moves to given coordinates. Must be implemented by derived classes.
-
-        Args:
-            alt: Alt in deg to move to.
-            az: Az in deg to move to.
-            abort_event: Event that gets triggered when movement should be aborted.
-
-        Raises:
-            Exception: On error.
-        """
-
-        # reset offsets
-        self._offset_ra, self._offset_dec = 0, 0
-
-        # alt/az coordinates to ra/dec
-        coords = SkyCoord(alt=alt * u.degree, az=az * u.degree, obstime=Time.now(),
-                          location=self.location, frame='altaz')
-        icrs = coords.icrs
-
-        # move
-        self.__move(icrs.ra.degree, icrs.dec.degree, False, abort_event)
+        self.__move_radec(ra, dec, abort_event)
 
     @timeout(10000)
     def set_radec_offsets(self, dra: float, ddec: float, *args, **kwargs):
@@ -196,7 +207,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             self._offset_dec = ddec
 
             # move
-            self.__move(ra, dec, True, self._abort_move)
+            self.__move_radec(ra, dec, self._abort_move)
 
             # finish slewing
             self._change_motion_status(IMotion.Status.TRACKING)
