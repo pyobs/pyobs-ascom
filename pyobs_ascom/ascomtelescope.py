@@ -104,9 +104,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         self._offset_ra, self._offset_dec = 0, 0
 
         # correct azimuth
-        #az += 180
-        #if az >= 360.:
-        #    az -= 360
+        az = 180 - az
+        if az < 0.:
+            az += 360
 
         # get device
         with com_device(self._device) as device:
@@ -269,9 +269,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         # get device
         with com_device(self._device) as device:
             # correct azimuth
-            az = device.Azimuth #+ 180
-            #if az >= 360.:
-            #    az -= 360
+            az = device.Azimuth - 180
+            if az < 0.:
+                az += 360
 
             # create sky coordinates
             return device.Altitude, az
