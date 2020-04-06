@@ -113,7 +113,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
             log.info("Moving telescope to Alt=%.3f°, Az=%.3f°...", alt, az)
-            device.SlewToAltAz(alt, az)
+            device.SlewToAltAz(az, alt)
 
             # wait for it
             while device.Slewing:
