@@ -117,8 +117,8 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
                      ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
                      ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
-            device.SlewToCoordinates(ra / 15., dec)
             device.Tracking = tracking
+            device.SlewToCoordinates(ra / 15., dec)
 
             # wait for it
             while device.Slewing:
