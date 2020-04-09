@@ -5,13 +5,14 @@ from astropy import units as u
 import numpy as np
 import pythoncom
 import win32com.client
+from pywintypes import com_error
 
 from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquatorialMount
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
 from pyobs.utils.threads import LockWithAbort
 from pyobs.utils.time import Time
-from .com import  com_device
+from .com import com_device
 
 
 log = logging.getLogger('pyobs')
@@ -58,7 +59,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
                 raise ValueError('Unable to connect to telescope.')
 
         # finish COM
-        pythoncom.CoInitialize()
+        pythoncom.CoUninitialize()
 
     def close(self):
         """Clode module."""
@@ -118,46 +119,6 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             self._change_motion_status(IMotion.Status.POSITIONED)
             log.info('Reached destination')
 
-    def __move_radec(self, ra: float, dec: float, abort_event: threading.Event):
-        """Move to given RA/Dec.
-
-        Args:
-            ra: RA in deg to track.
-            dec: Dec in deg to track.
-            abort_event: Event that gets triggered when movement should be aborted.
-
-        Raises:
-            Exception: On any error.
-        """
-
-        # get current coordinates
-        cur_ra, cur_dec = self.get_radec()
-
-        # add offset (convert RA offset from hours to degrees)
-        ra += float(self._offset_ra / np.cos(np.radians(cur_dec)))
-        dec += float(self._offset_dec)
-
-        # to skycoords
-        ra_dec = SkyCoord(ra * u.deg, dec * u.deg, frame=ICRS)
-
-        # get device
-        with com_device(self._device) as device:
-            # start slewing
-            self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
-                     ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
-                     ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
-            device.Tracking = True
-            device.SlewToCoordinates(ra / 15., dec)
-
-            # wait for it
-            while device.Slewing:
-                abort_event.wait(1)
-
-            # finish slewing
-            self._change_motion_status(IMotion.Status.TRACKING)
-            log.info('Reached destination')
-
     def _track_radec(self, ra: float, dec: float, abort_event: threading.Event):
         """Actually starts tracking on given coordinates. Must be implemented by derived classes.
 
@@ -173,8 +134,29 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         # reset offsets
         self._offset_ra, self._offset_dec = 0, 0
 
-        # move telescope
-        self.__move_radec(ra, dec, abort_event)
+        # to skycoords
+        ra_dec = SkyCoord(ra * u.deg, dec * u.deg, frame=ICRS)
+
+        # get device
+        with com_device(self._device) as device:
+            # set coordinates slewing
+            self._change_motion_status(IMotion.Status.SLEWING)
+            log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
+                     ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
+                     ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
+            device.TargetRightAscension = ra / 15.
+            device.TargetDeclination = dec
+
+            # start slewing
+            device.Tracking = True
+            device.SlewToTargetAsync()
+
+            # wait for it
+            while device.Slewing:
+                abort_event.wait(1)
+
+            # finish slewing
+            self._change_motion_status(IMotion.Status.TRACKING)
 
     @timeout(10000)
     def set_radec_offsets(self, dra: float, ddec: float, *args, **kwargs):
@@ -190,23 +172,41 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
 
         # acquire lock
         with LockWithAbort(self._lock_moving, self._abort_move):
-            # start slewing
-            self._change_motion_status(IMotion.Status.SLEWING)
-            log.info('Setting telescope offsets to dRA=%.2f", dDec=%.2f"...', dra * 3600., ddec * 3600.)
+            # get device
+            with com_device(self._device) as device:
+                # start slewing
+                self._change_motion_status(IMotion.Status.SLEWING)
+                log.info('Setting telescope offsets to dRA=%.2f", dDec=%.2f"...', dra * 3600., ddec * 3600.)
 
-            # get current coordinates
-            ra, dec = self.get_radec()
+                # store offsets
+                self._offset_ra = dra
+                self._offset_dec = ddec
 
-            # set offsets
-            self._offset_ra = dra
-            self._offset_dec = ddec
+                # get current target coordinates
+                try:
+                    ra, dec = device.TargetRightAscension, device.TargetDeclination
+                except com_error:
+                    # got none, set it to current coordinates
+                    log.warning('Found no valid target coordinates, setting them to current telescope coordinates...')
+                    device.TargetRightAscension = device.RightAscension
+                    device.TargetDeclination = device.Declination
+                    ra, dec = device.RightAscension, device.Declination
 
-            # move
-            self.__move_radec(ra, dec, self._abort_move)
+                # add offset (convert RA offset from hours to degrees)
+                ra += float(self._offset_ra / np.cos(np.radians(dec)) / 15.)
+                dec += float(self._offset_dec)
 
-            # finish slewing
-            self._change_motion_status(IMotion.Status.TRACKING)
-            log.info('Reached destination.')
+                # start slewing
+                device.Tracking = True
+                device.SlewToCoordinatesAsync(ra, dec)
+
+                # wait for it
+                while device.Slewing:
+                    self._abort_move.wait(1)
+
+                # finish slewing
+                self._change_motion_status(IMotion.Status.TRACKING)
+                log.info('Reached destination.')
 
     def get_radec_offsets(self, *args, **kwargs) -> (float, float):
         """Get RA/Dec offset.
@@ -251,8 +251,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
         # get device
         with com_device(self._device) as device:
             ra_off = self._offset_ra / np.cos(np.radians(device.Declination))
-            return float(device.RightAscension * 15 - ra_off),\
-                   float(device.Declination - self._offset_dec)
+            return float(device.RightAscension * 15 - ra_off), float(device.Declination - self._offset_dec)
 
     def get_altaz(self, *args, **kwargs) -> (float, float):
         """Returns current Alt and Az.
