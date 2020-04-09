@@ -5,7 +5,6 @@ from astropy import units as u
 import numpy as np
 import pythoncom
 import win32com.client
-from pywintypes import com_error
 
 from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquatorialMount
 from pyobs.modules import timeout
