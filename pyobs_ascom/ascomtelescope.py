@@ -10,7 +10,6 @@ from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquatorialMount
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
 from pyobs.utils.threads import LockWithAbort
-from pyobs.utils.time import Time
 from .com import com_device
 
 
@@ -173,12 +172,12 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
                 self._change_motion_status(IMotion.Status.SLEWING)
                 log.info('Setting telescope offsets to dRA=%.2f", dDec=%.2f"...', dra * 3600., ddec * 3600.)
 
+                # get current coordinates (with old offsets)
+                ra, dec = self.get_radec()
+
                 # store offsets
                 self._offset_ra = dra
                 self._offset_dec = ddec
-
-                # get current coordinates
-                ra, dec = self.get_radec()
 
                 # add offset
                 ra += float(self._offset_ra / np.cos(np.radians(dec)))
