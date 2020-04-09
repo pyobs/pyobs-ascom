@@ -109,7 +109,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
             # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
             log.info("Moving telescope to Alt=%.3f°, Az=%.3f°...", alt, az)
-            device.SlewToAltAz(az, alt)
+            device.SlewToAltAzAsync(az, alt)
 
             # wait for it
             while device.Slewing:
@@ -139,17 +139,13 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
 
         # get device
         with com_device(self._device) as device:
-            # set coordinates slewing
+            # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
             log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
                      ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
                      ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
-            device.TargetRightAscension = ra / 15.
-            device.TargetDeclination = dec
-
-            # start slewing
             device.Tracking = True
-            device.SlewToTargetAsync()
+            device.SlewToCoordinatesAsync(ra / 15., dec)
 
             # wait for it
             while device.Slewing:
@@ -182,23 +178,16 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount):
                 self._offset_ra = dra
                 self._offset_dec = ddec
 
-                # get current target coordinates
-                try:
-                    ra, dec = device.TargetRightAscension, device.TargetDeclination
-                except com_error:
-                    # got none, set it to current coordinates
-                    log.warning('Found no valid target coordinates, setting them to current telescope coordinates...')
-                    device.TargetRightAscension = device.RightAscension
-                    device.TargetDeclination = device.Declination
-                    ra, dec = device.RightAscension, device.Declination
+                # get current coordinates
+                ra, dec = self.get_radec()
 
-                # add offset (convert RA offset from hours to degrees)
-                ra += float(self._offset_ra / np.cos(np.radians(dec)) / 15.)
+                # add offset
+                ra += float(self._offset_ra / np.cos(np.radians(dec)))
                 dec += float(self._offset_dec)
 
                 # start slewing
                 device.Tracking = True
-                device.SlewToCoordinatesAsync(ra, dec)
+                device.SlewToCoordinatesAsync(ra / 15., dec)
 
                 # wait for it
                 while device.Slewing:
