@@ -117,7 +117,7 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IRaDecOffsets, ISyncTar
             self._change_motion_status(IMotion.Status.POSITIONED)
             log.info('Reached destination')
 
-    def _track_radec(self, ra: float, dec: float, abort_event: threading.Event):
+    def _move_radec(self, ra: float, dec: float, abort_event: threading.Event):
         """Actually starts tracking on given coordinates. Must be implemented by derived classes.
 
         Args:
