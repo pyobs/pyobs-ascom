@@ -6,7 +6,7 @@ import numpy as np
 import pythoncom
 import win32com.client
 
-from pyobs.interfaces import IFitsHeaderProvider, IMotion, IEquatorialMount, ISyncTarget
+from pyobs.interfaces import IFitsHeaderProvider, IMotion, IRaDecOffsets, ISyncTarget
 from pyobs.modules import timeout
 from pyobs.modules.telescope.basetelescope import BaseTelescope
 from pyobs.utils.threads import LockWithAbort
@@ -16,7 +16,7 @@ from .com import com_device
 log = logging.getLogger('pyobs')
 
 
-class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IEquatorialMount, ISyncTarget):
+class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IRaDecOffsets, ISyncTarget):
     def __init__(self, device: str = None, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs, motion_status_interfaces=['ITelescope'])
 
