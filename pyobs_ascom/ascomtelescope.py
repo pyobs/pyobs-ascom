@@ -310,7 +310,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         ra_off, dec_off = self.get_radec_offsets()
 
         # define values to request
-        hdr['RAOFF'] = (ra_off, 'RA offset [deg]'),
+        hdr['RAOFF'] = (ra_off, 'RA offset [deg]')
         hdr['DECOFF'] = (dec_off, 'Dec offset [deg]')
 
         # return it
