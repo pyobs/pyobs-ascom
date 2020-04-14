@@ -74,6 +74,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
                 log.info('Disconnecting from telescope...')
                 device.Connected = False
 
+    @timeout(60000)
     def init(self, *args, **kwargs):
         """Initialize telescope.
 
@@ -86,6 +87,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             # just move telescope to alt=15, az=180
             self._move_altaz(15, 180, self._abort_move)
 
+    @timeout(60000)
     def park(self, *args, **kwargs):
         """Park telescope.
 
