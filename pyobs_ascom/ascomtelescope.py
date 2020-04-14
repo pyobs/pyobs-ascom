@@ -5,6 +5,7 @@ from astropy import units as u
 import numpy as np
 import pythoncom
 import win32com.client
+from pyobs.mixins import FitsNamespaceMixin
 
 from pyobs.interfaces import IFitsHeaderProvider, IMotion, IRaDecOffsets, ISyncTarget
 from pyobs.modules import timeout
@@ -16,7 +17,7 @@ from .com import com_device
 log = logging.getLogger('pyobs')
 
 
-class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IRaDecOffsets, ISyncTarget):
+class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRaDecOffsets, ISyncTarget):
     def __init__(self, device: str = None, *args, **kwargs):
         BaseTelescope.__init__(self, *args, **kwargs, motion_status_interfaces=['ITelescope'])
 
@@ -26,6 +27,9 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IRaDecOffsets, ISyncTar
         # offsets in ra/dec
         self._offset_ra = 0
         self._offset_dec = 0
+
+        # mixins
+        FitsNamespaceMixin.__init__(self, *args, **kwargs)
 
     def open(self):
         """Open module.
@@ -288,6 +292,29 @@ class AscomTelescope(BaseTelescope, IFitsHeaderProvider, IRaDecOffsets, ISyncTar
         with com_device(self._device) as device:
             # sync
             device.SyncToCoordinates(ra / 15., dec)
+
+    def get_fits_headers(self, namespaces: list = None, *args, **kwargs) -> dict:
+        """Returns FITS header for the current status of this module.
+
+        Args:
+            namespaces: If given, only return FITS headers for the given namespaces.
+
+        Returns:
+            Dictionary containing FITS headers.
+        """
+
+        # get headers from base
+        hdr = BaseTelescope.get_fits_headers(self)
+
+        # get offsets
+        ra_off, dec_off = self.get_radec_offsets()
+
+        # define values to request
+        hdr['RAOFF'] = (ra_off, 'RA offset [deg]'),
+        hdr['DECOFF'] = (dec_off, 'Dec offset [deg]')
+
+        # return it
+        return self._filter_fits_namespace(hdr, namespaces, **kwargs)
 
 
 __all__ = ['AscomTelescope']
