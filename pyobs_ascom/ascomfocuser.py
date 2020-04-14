@@ -80,8 +80,9 @@ class AscomFocuser(MotionStatusMixin, IFocuser, IFitsHeaderProvider, PyObsModule
         # get device
         with com_device(self._device) as device:
             # return header
+            # StepSize is in microns, so divide by 1000
             return {
-                'TEL-FOCU': (device.Position / device.StepSize, 'Focus of telescope [mm]')
+                'TEL-FOCU': (device.Position / device.StepSize / 1000., 'Focus of telescope [mm]')
             }
 
     @timeout(60000)
