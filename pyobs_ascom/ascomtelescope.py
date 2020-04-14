@@ -80,7 +80,11 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         Raises:
             ValueError: If telescope could not be initialized.
         """
-        pass
+
+        # acquire lock
+        with LockWithAbort(self._lock_moving, self._abort_move):
+            # just move telescope to alt=15, az=180
+            self._move_altaz(15, 180, self._abort_move)
 
     def park(self, *args, **kwargs):
         """Park telescope.
@@ -88,16 +92,22 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         Raises:
             ValueError: If telescope could not be parked.
         """
-        pass
+
+        # acquire lock
+        with LockWithAbort(self._lock_moving, self._abort_move):
+            # just move telescope to alt=15, az=180
+            self._move_altaz(15, 180, self._abort_move, final_state=IMotion.Status.PARKED)
 
     @timeout(60000)
-    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
+    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event,
+                    final_state: IMotion.Status = IMotion.Status.POSITIONED):
         """Actually moves to given coordinates. Must be implemented by derived classes.
 
         Args:
             alt: Alt in deg to move to.
             az: Az in deg to move to.
             abort_event: Event that gets triggered when movement should be aborted.
+            final_state: Motion state to set after finished moving.
 
         Raises:
             Exception: On error.
@@ -118,7 +128,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
                 abort_event.wait(1)
 
             # finish slewing
-            self._change_motion_status(IMotion.Status.POSITIONED)
+            self._change_motion_status(final_state)
             log.info('Reached destination')
 
     def _move_radec(self, ra: float, dec: float, abort_event: threading.Event):
