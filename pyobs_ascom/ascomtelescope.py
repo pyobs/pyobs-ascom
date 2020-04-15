@@ -123,6 +123,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             # start slewing
             self._change_motion_status(IMotion.Status.SLEWING)
             log.info("Moving telescope to Alt=%.3f°, Az=%.3f°...", alt, az)
+            device.Tracking = False
             device.SlewToAltAzAsync(az, alt)
 
             # wait for it
