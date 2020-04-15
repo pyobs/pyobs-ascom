@@ -18,11 +18,19 @@ log = logging.getLogger('pyobs')
 
 
 class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRaDecOffsets, ISyncTarget):
-    def __init__(self, device: str = None, *args, **kwargs):
+    def __init__(self, device: str = None, settle_time: float = 2.0, *args, **kwargs):
+        """Initializes a new ASCOM telescope.
+
+        Args:
+            device: Name of ASCOM device.
+            settle_time: Time in seconds to wait after slew before finishing.
+        """
+
         BaseTelescope.__init__(self, *args, **kwargs, motion_status_interfaces=['ITelescope'])
 
         # variables
         self._device = device
+        self._settle_time = settle_time
 
         # offsets in ra/dec
         self._offset_ra = 0
@@ -129,9 +137,12 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             # wait for it
             while device.Slewing:
                 abort_event.wait(1)
+            device.Tracking = False
+
+            # wait settle time
+            abort_event.wait(self._settle_time)
 
             # finish slewing
-            device.Tracking = False
             self._change_motion_status(final_state)
             log.info('Reached destination')
 
@@ -166,9 +177,12 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             # wait for it
             while device.Slewing:
                 abort_event.wait(1)
+            device.Tracking = True
+
+            # wait settle time
+            abort_event.wait(self._settle_time)
 
             # finish slewing
-            device.Tracking = True
             self._change_motion_status(IMotion.Status.TRACKING)
 
     @timeout(10000)
@@ -209,9 +223,12 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
                 # wait for it
                 while device.Slewing:
                     self._abort_move.wait(1)
+                device.Tracking = True
+
+                # wait settle time
+                self._abort_move.wait(self._settle_time)
 
                 # finish slewing
-                device.Tracking = True
                 self._change_motion_status(IMotion.Status.TRACKING)
                 log.info('Reached destination.')
 
