@@ -211,6 +211,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
                     self._abort_move.wait(1)
 
                 # finish slewing
+                device.Tracking = True
                 self._change_motion_status(IMotion.Status.TRACKING)
                 log.info('Reached destination.')
 
