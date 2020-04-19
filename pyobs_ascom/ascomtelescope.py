@@ -129,8 +129,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         # get device
         with com_device(self._device) as device:
             # start slewing
-            self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Moving telescope to Alt=%.3f°, Az=%.3f°...", alt, az)
             device.Tracking = False
             device.SlewToAltAzAsync(az, alt)
 
@@ -141,10 +139,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
 
             # wait settle time
             abort_event.wait(self._settle_time)
-
-            # finish slewing
-            self._change_motion_status(final_state)
-            log.info('Reached destination')
 
     def _move_radec(self, ra: float, dec: float, abort_event: threading.Event):
         """Actually starts tracking on given coordinates. Must be implemented by derived classes.
@@ -167,10 +161,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         # get device
         with com_device(self._device) as device:
             # start slewing
-            self._change_motion_status(IMotion.Status.SLEWING)
-            log.info("Moving telescope to RA=%s (%.5f°), Dec=%s (%.5f°)...",
-                     ra_dec.ra.to_string(sep=':', unit=u.hour, pad=True), ra,
-                     ra_dec.dec.to_string(sep=':', unit=u.deg, pad=True), dec)
             device.Tracking = True
             device.SlewToCoordinatesAsync(ra / 15., dec)
 
@@ -181,9 +171,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
 
             # wait settle time
             abort_event.wait(self._settle_time)
-
-            # finish slewing
-            self._change_motion_status(IMotion.Status.TRACKING)
 
     @timeout(10000)
     def set_radec_offsets(self, dra: float, ddec: float, *args, **kwargs):
