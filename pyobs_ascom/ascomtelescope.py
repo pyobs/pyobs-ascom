@@ -108,7 +108,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             # just move telescope to alt=15, az=180
             self._move_altaz(15, 180, self._abort_move, final_state=IMotion.Status.PARKED)
 
-    @timeout(60000)
     def _move_altaz(self, alt: float, az: float, abort_event: threading.Event,
                     final_state: IMotion.Status = IMotion.Status.POSITIONED):
         """Actually moves to given coordinates. Must be implemented by derived classes.
