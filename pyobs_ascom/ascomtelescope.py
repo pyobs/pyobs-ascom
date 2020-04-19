@@ -18,7 +18,7 @@ log = logging.getLogger('pyobs')
 
 
 class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRaDecOffsets, ISyncTarget):
-    def __init__(self, device: str = None, settle_time: float = 2.0, *args, **kwargs):
+    def __init__(self, device: str = None, settle_time: float = 3.0, *args, **kwargs):
         """Initializes a new ASCOM telescope.
 
         Args:
