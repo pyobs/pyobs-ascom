@@ -51,6 +51,9 @@ class AscomFocuser(MotionStatusMixin, IFocuser, IFitsHeaderProvider, PyObsModule
         # open mixins
         MotionStatusMixin.open(self)
 
+        # init status
+        self._change_motion_status(IMotion.Status.IDLE, interface='IFocuser')
+
     def init(self, *args, **kwargs):
         """Initialize device.
 
