@@ -36,6 +36,9 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         self._offset_ra = 0
         self._offset_dec = 0
 
+        # update thread
+        self._add_thread_func(self._update)
+
         # mixins
         FitsNamespaceMixin.__init__(self, *args, **kwargs)
 
@@ -232,30 +235,22 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         """
         return self._offset_ra, self._offset_dec
 
-    def get_motion_status(self, interface: str = None, *args, **kwargs) -> IMotion.Status:
-        """Returns current motion status.
+    def _update(self):
+        """Update thread."""
 
-        Args:
-            interface: Name of interface to get status for, or None.
-
-        Returns:
-            A string from the Status enumerator.
-
-        Raises:
-            KeyError: If interface is not known.
-        """
-
-        # get device
-        with com_device(self._device) as device:
-            # what status are we in?
-            if device.AtPark:
-                return IMotion.Status.PARKED.value
-            elif device.Slewing:
-                return IMotion.Status.SLEWING.value
-            elif device.Tracking:
-                return IMotion.Status.TRACKING.value
-            else:
-                return IMotion.Status.IDLE.value
+        # loop forever
+        while not self.closing.is_set():
+            # get device
+            with com_device(self._device) as device:
+                # what status are we in?
+                if device.AtPark:
+                    self._change_motion_status(IMotion.Status.PARKED)
+                elif device.Slewing:
+                    self._change_motion_status(IMotion.Status.SLEWING)
+                elif device.Tracking:
+                    self._change_motion_status(IMotion.Status.TRACKING)
+                else:
+                    self._change_motion_status(IMotion.Status.IDLE)
 
     def get_radec(self, *args, **kwargs) -> (float, float):
         """Returns current RA and Dec.
