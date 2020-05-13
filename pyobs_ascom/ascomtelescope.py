@@ -92,10 +92,10 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
 
         # acquire lock
         with LockWithAbort(self._lock_moving, self._abort_move):
-            # get device
-            with com_device(self._device) as device:
-                # park telescope
-                device.Unpark()
+            # park telescope
+            log.info('Initializing telescope...')
+            self._move_altaz(30, 180, self._abort_move)
+            log.info('Telescope initialized.')
 
     @timeout(60000)
     def park(self, *args, **kwargs):
@@ -110,7 +110,9 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             # get device
             with com_device(self._device) as device:
                 # park telescope
+                log.info('Parking telescope...')
                 device.Park()
+                log.info('Telescope parked.')
 
     def _move_altaz(self, alt: float, az: float, abort_event: threading.Event,
                     final_state: IMotion.Status = IMotion.Status.POSITIONED):
