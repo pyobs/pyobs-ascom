@@ -92,8 +92,10 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
 
         # acquire lock
         with LockWithAbort(self._lock_moving, self._abort_move):
-            # just move telescope to alt=15, az=180
-            self._move_altaz(15, 180, self._abort_move)
+            # get device
+            with com_device(self._device) as device:
+                # park telescope
+                device.Unpark()
 
     @timeout(60000)
     def park(self, *args, **kwargs):
@@ -105,8 +107,10 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
 
         # acquire lock
         with LockWithAbort(self._lock_moving, self._abort_move):
-            # just move telescope to alt=15, az=180
-            self._move_altaz(15, 180, self._abort_move, final_state=IMotion.Status.PARKED)
+            # get device
+            with com_device(self._device) as device:
+                # park telescope
+                device.Park()
 
     def _move_altaz(self, alt: float, az: float, abort_event: threading.Event,
                     final_state: IMotion.Status = IMotion.Status.POSITIONED):
@@ -242,12 +246,12 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         # get device
         with com_device(self._device) as device:
             # what status are we in?
-            if device.Tracking:
-                return IMotion.Status.TRACKING.value
+            if device.AtPark:
+                return IMotion.Status.PARKED.value
             elif device.Slewing:
                 return IMotion.Status.SLEWING.value
-            elif device.AtPark:
-                return IMotion.Status.PARKED.value
+            elif device.Tracking:
+                return IMotion.Status.TRACKING.value
             else:
                 return IMotion.Status.IDLE.value
 
