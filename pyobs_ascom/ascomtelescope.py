@@ -36,9 +36,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         self._offset_ra = 0
         self._offset_dec = 0
 
-        # update thread
-        self._add_thread_func(self._update)
-
         # mixins
         FitsNamespaceMixin.__init__(self, *args, **kwargs)
 
@@ -71,6 +68,16 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             else:
                 raise ValueError('Unable to connect to telescope.')
 
+        # initial status
+        if device.AtPark:
+            self._change_motion_status(IMotion.Status.PARKED)
+        elif device.Slewing:
+            self._change_motion_status(IMotion.Status.SLEWING)
+        elif device.Tracking:
+            self._change_motion_status(IMotion.Status.TRACKING)
+        else:
+            self._change_motion_status(IMotion.Status.IDLE)
+
         # finish COM
         pythoncom.CoUninitialize()
 
@@ -97,7 +104,9 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         with LockWithAbort(self._lock_moving, self._abort_move):
             # park telescope
             log.info('Initializing telescope...')
+            self._change_motion_status(IMotion.Status.INITIALIZING)
             self._move_altaz(30, 180, self._abort_move)
+            self._change_motion_status(IMotion.Status.IDLE)
             log.info('Telescope initialized.')
 
     @timeout(60000)
@@ -114,18 +123,18 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             with com_device(self._device) as device:
                 # park telescope
                 log.info('Parking telescope...')
+                self._change_motion_status(IMotion.Status.PARKING)
                 device.Park()
+                self._change_motion_status(IMotion.Status.PARKED)
                 log.info('Telescope parked.')
 
-    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event,
-                    final_state: IMotion.Status = IMotion.Status.POSITIONED):
+    def _move_altaz(self, alt: float, az: float, abort_event: threading.Event):
         """Actually moves to given coordinates. Must be implemented by derived classes.
 
         Args:
             alt: Alt in deg to move to.
             az: Az in deg to move to.
             abort_event: Event that gets triggered when movement should be aborted.
-            final_state: Motion state to set after finished moving.
 
         Raises:
             Exception: On error.
@@ -234,23 +243,6 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             Tuple with RA and Dec offsets.
         """
         return self._offset_ra, self._offset_dec
-
-    def _update(self):
-        """Update thread."""
-
-        # loop forever
-        while not self.closing.is_set():
-            # get device
-            with com_device(self._device) as device:
-                # what status are we in?
-                if device.AtPark:
-                    self._change_motion_status(IMotion.Status.PARKED)
-                elif device.Slewing:
-                    self._change_motion_status(IMotion.Status.SLEWING)
-                elif device.Tracking:
-                    self._change_motion_status(IMotion.Status.TRACKING)
-                else:
-                    self._change_motion_status(IMotion.Status.IDLE)
 
     def get_radec(self, *args, **kwargs) -> (float, float):
         """Returns current RA and Dec.
