@@ -4,7 +4,7 @@ import time
 import pythoncom
 import win32com.client
 
-from pyobs import PyObsModule
+from pyobs import Module
 from pyobs.interfaces import IFocuser, IFitsHeaderProvider, IMotion
 from pyobs.mixins import MotionStatusMixin
 from pyobs.modules import timeout
@@ -15,9 +15,9 @@ from .com import com_device
 log = logging.getLogger(__name__)
 
 
-class AscomFocuser(MotionStatusMixin, IFocuser, IFitsHeaderProvider, PyObsModule):
+class AscomFocuser(MotionStatusMixin, IFocuser, IFitsHeaderProvider, Module):
     def __init__(self, device: str = None, *args, **kwargs):
-        PyObsModule.__init__(self, *args, **kwargs)
+        Module.__init__(self, *args, **kwargs)
 
         # variables
         self._device = device
@@ -32,7 +32,7 @@ class AscomFocuser(MotionStatusMixin, IFocuser, IFitsHeaderProvider, PyObsModule
 
     def open(self):
         """Open module."""
-        PyObsModule.open(self)
+        Module.open(self)
 
         # do we need to chose a device?
         if not self._device:
