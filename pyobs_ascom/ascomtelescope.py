@@ -258,7 +258,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
             ra_off = self._offset_ra / np.cos(np.radians(device.Declination))
             return float(device.RightAscension * 15 - ra_off), float(device.Declination - self._offset_dec)
 
-    def get_altaz(self, *args, **kwargs) -> (float, float):
+    def get_altaz(self, *args, **kwargs) -> Tuple[float, float]:
         """Returns current Alt and Az.
 
         Returns:
@@ -328,7 +328,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         hdr['DECOFF'] = (dec_off, 'Dec offset [deg]')
 
         # return it
-        return self._filter_fits_namespace(hdr, namespaces, **kwargs)
+        return self._filter_fits_namespace(hdr, namespaces=namespaces, **kwargs)
 
 
 __all__ = ['AscomTelescope']
