@@ -1,5 +1,7 @@
 import logging
 import threading
+from typing import Tuple
+
 from astropy.coordinates import SkyCoord, ICRS
 from astropy import units as u
 import numpy as np
@@ -236,7 +238,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
                 self._change_motion_status(IMotion.Status.TRACKING)
                 log.info('Reached destination.')
 
-    def get_radec_offsets(self, *args, **kwargs) -> (float, float):
+    def get_radec_offsets(self, *args, **kwargs) -> Tuple[float, float]:
         """Get RA/Dec offset.
 
         Returns:
@@ -244,7 +246,7 @@ class AscomTelescope(BaseTelescope, FitsNamespaceMixin, IFitsHeaderProvider, IRa
         """
         return self._offset_ra, self._offset_dec
 
-    def get_radec(self, *args, **kwargs) -> (float, float):
+    def get_radec(self, *args, **kwargs) -> Tuple[float, float]:
         """Returns current RA and Dec.
 
         Returns:
